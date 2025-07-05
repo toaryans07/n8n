@@ -1,0 +1,434 @@
+{
+  "name": "Renny's test",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "d9695912-d16b-4343-9bbd-6e749129b141",
+        "options": {
+          "noResponseBody": true
+        }
+      },
+      "id": "330e7c7b-9142-49f2-9813-0b26c8951c6a",
+      "name": "Lead Capture Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -680,
+        440
+      ],
+      "webhookId": "d9695912-d16b-4343-9bbd-6e749129b141"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔍 Step 1: Get fields from the webhook body\nconst fields = $json.body?.data?.fields || [];\n\n// 🪵 Debug: Print the raw fields to execution log\nconsole.log(\"🚨 Incoming Tally fields:\", fields);\n\n// ✅ Step 2: Smart field extractor by key\nfunction getValueByKey(key) {\n  const field = fields.find(f => f.key === key);\n  if (!field) return null;\n\n  // Handle dropdowns: map option ID to visible text\n  if (Array.isArray(field.value) && field.options) {\n    const selectedId = field.value[0];\n    const match = field.options.find(opt => opt.id === selectedId);\n    return match?.text || null;\n  }\n\n  // Handle text values\n  return typeof field.value === \"string\" ? field.value.trim() : null;\n}\n\n// ✅ Step 3: Use your real Tally keys here (updated to match your actual form)\nconst leadData = {\n  name: getValueByKey(\"question_GpBp9p\"),\n  email: getValueByKey(\"question_OXBX47\"),\n  phone: getValueByKey(\"question_VP1PQJ\"),\n  project_type: getValueByKey(\"question_P9B915\") || \"General Inquiry\",\n  budget: getValueByKey(\"question_ElbldX\") || \"Not specified\",\n  timeline: getValueByKey(\"question_rOrOal\") || \"Not specified\",\n  message: getValueByKey(\"question_47N7Jk\") || \"No message provided\",\n  source: \"Website\"\n};\n\n// 🕒 Step 4: Add timestamps\nconst timestamp = new Date().toLocaleString('en-US', {\n  timeZone: 'America/Chicago',\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n  hour: '2-digit',\n  minute: '2-digit',\n  second: '2-digit'\n});\nconst followUpDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];\n\n// 🧠 Step 5: Lead scoring logic\nlet leadScore = 50;\n\nif (leadData.message && leadData.message.length > 20) {\n  const len = leadData.message.length;\n  if (len > 250) leadScore += 25;\n  else if (len > 100) leadScore += 15;\n  else leadScore += 10;\n}\n\nif (leadData.budget && typeof leadData.budget === \"string\") {\n  const budget = parseInt(leadData.budget.replace(/[^0-9]/g, \"\"));\n  if (!isNaN(budget)) {\n    if (budget > 80000) leadScore += 25;\n    else if (budget > 50000) leadScore += 15;\n    else if (budget > 25000) leadScore += 10;\n  }\n}\n\nif (leadData.timeline.toLowerCase().includes(\"asap\")) {\n  leadScore += 15;\n}\n\n// 🔥 Step 6: Urgency classification\nlet urgency = \"MEDIUM\";\nif (leadScore >= 90) urgency = \"HOT\";\nelse if (leadScore >= 65) urgency = \"WARM\";\nelse if (leadScore <= 40) urgency = \"COLD\";\n\n// 📦 Step 7: Return the final data object\nreturn {\n  json: {\n    ...leadData,\n    timestamp,\n    lead_score: leadScore,\n    urgency,\n    follow_up_date: followUpDate\n  }\n};\n"
+      },
+      "id": "75a98826-249b-4573-a486-8370ccfc03c8",
+      "name": "Process Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1CpzfAxW8mX3YwBsTGV63ESdSDk0T8GWshzHH_EuvDOw",
+          "mode": "list",
+          "cachedResultName": "Renny's Home Renovation Test",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CpzfAxW8mX3YwBsTGV63ESdSDk0T8GWshzHH_EuvDOw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Customer Data Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CpzfAxW8mX3YwBsTGV63ESdSDk0T8GWshzHH_EuvDOw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.name || \"Unknown\" }}",
+            "Email": "={{ $json.email || \"no-email@example.com\" }}",
+            "Phone": "={{ $json.phone || \"N/A\" }}",
+            "Message": "={{ $json.message || \"No message provided\" }}",
+            "Timestamp": "={{ $json.timestamp || \"\" }}",
+            "Urgency": "={{ $json.urgency || \"UNKNOWN\" }}",
+            "Lead Score": "={{ $json.lead_score || 0 }}",
+            "Project Type": "={{ $json.project_type || \"Not specified\" }}",
+            "Budget": "={{ $json.budget || \"Not specified\" }}",
+            "Timeline": "={{ $json.timeline || \"Not specified\" }}",
+            "Source": "={{ $json.source || \"Website\" }}"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Project Type",
+              "displayName": "Project Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timeline",
+              "displayName": "Timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Urgency",
+              "displayName": "Urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "id": "e0d1c717-b539-4f6b-a028-9a4f526b02d7",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -240,
+        440
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DkZVnGsWkx991k8N",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "options": {},
+        "requestOptions": {}
+      },
+      "id": "bfc715e0-1a55-4bd3-9897-7a55b9ed640b",
+      "name": "Generate AI Response",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "rennyhomerenovation@gmail.com",
+        "toEmail": "rennyhomerenovation@gmail.com",
+        "subject": "=New Remodeling Lead!",
+        "text": "=New Lead Captured! 📥\n\n\nCheck the spreadsheet for full details and urgency level.\nSpreadsheet: https://docs.google.com/spreadsheets/d/1CpzfAxW8mX3YwBsTGV63ESdSDk0T8GWshzHH_EuvDOw/edit?usp=sharing\n\n\n\n\n",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "1fadc557-7373-4fdb-8e70-33152a7feb3b",
+      "name": "Send Notification Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        200,
+        440
+      ],
+      "webhookId": "27d2f2a1-f4a6-469b-bfca-f29725c161fc",
+      "credentials": {
+        "smtp": {
+          "id": "7Sz7XueL8R75pWNo",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-urgency-check",
+              "leftValue": "={{ $('Process Lead Data').item.json.urgency }}",
+              "rightValue": "HOT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "looseTypeValidation": true
+        }
+      },
+      "id": "08ddd147-b5c8-47b1-8fd8-a00d7f80057d",
+      "name": "Hot Lead Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        420,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "rennyhomerenovation@gmail.com",
+        "toEmail": "rennyhomerenovation@gmail.com",
+        "subject": "=🔥 URGENT: HOT LEAD! CHECK SHEETS FOR TIMESTAMP ALIGNING WITH THIS MESSAGE\n",
+        "emailFormat": "=text",
+        "text": "=🔥 Hot Lead Alert 🔥\n\nA lead scored HIGH on urgency.\n\n\nCheck the sheet for details and follow-up ASAP.\nSpreadsheet: https://docs.google.com/spreadsheets/d/1CpzfAxW8mX3YwBsTGV63ESdSDk0T8GWshzHH_EuvDOw/edit?usp=sharing\n\n---\n",
+        "options": {}
+      },
+      "id": "d577cb18-6096-4894-84fa-274c7d04e1b9",
+      "name": "Send URGENT Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        640,
+        340
+      ],
+      "webhookId": "2d17b4ab-231f-47b3-ba49-b9caf393f8f4",
+      "credentials": {
+        "smtp": {
+          "id": "7Sz7XueL8R75pWNo",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "069a1b15-1f79-4bc3-85d7-aa01ded0a8aa",
+      "name": "Monitor Email Inbox",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        640
+      ],
+      "credentials": {
+        "imap": {
+          "id": "eWSEPJe3vz0SYq3w",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract lead data from email content\nconst emailData = $input.first().json;\n\n// Parse email for common lead patterns\nlet name = '';\nlet phone = '';\nlet email = '';\nlet message = emailData.text || '';\n\n// Extract name (look for common patterns)\nconst namePatterns = [\n  /Name[:\\s]+([^\\n\\r]+)/i,\n  /My name is ([^\\n\\r,.]+)/i,\n  /I'm ([^\\n\\r,.]+)/i,\n  /From[:\\s]+([^\\n\\r<]+)/i\n];\n\nfor (const pattern of namePatterns) {\n  const match = message.match(pattern);\n  if (match) {\n    name = match[1].trim();\n    break;\n  }\n}\n\n// Extract phone\nconst phoneMatch = message.match(/(\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4})/g);\nif (phoneMatch) phone = phoneMatch[0];\n\n// Extract email\nconst emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})/g);\nif (emailMatch) email = emailMatch[0];\n\n// Extract project type from subject and content\nlet project_type = 'General Inquiry';\nconst projectKeywords = {\n  'kitchen': 'Kitchen Renovation',\n  'bathroom': 'Bathroom Renovation',\n  'addition': 'Home Addition',\n  'remodel': 'Home Remodeling',\n  'flooring': 'Flooring Installation',\n  'roofing': 'Roofing Services',\n  'siding': 'Siding Installation',\n  'deck': 'Deck Construction',\n  'patio': 'Patio Installation'\n};\n\nconst fullText = (emailData.subject + ' ' + message).toLowerCase();\nfor (const [keyword, project] of Object.entries(projectKeywords)) {\n  if (fullText.includes(keyword)) {\n    project_type = project;\n    break;\n  }\n}\n\n// Extract budget (look for dollar amounts)\nlet budget = 'Not specified';\nconst budgetMatch = message.match(/\\$([0-9,]+)/g);\nif (budgetMatch) {\n  budget = budgetMatch[0];\n}\n\nreturn {\n  json: {\n    name: name || 'Unknown',\n    email: email || emailData.from.value[0].address,\n    phone: phone,\n    project_type: project_type,\n    budget: budget,\n    timeline: 'Not specified',\n    message: message,\n    source: 'Email',\n    subject: emailData.subject\n  }\n};"
+      },
+      "id": "77441059-13cf-4871-a654-748fef4fd992",
+      "name": "Parse Email for Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        640
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Monitor Email Inbox": {
+      "main": [
+        [
+          {
+            "node": "Parse Email for Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Capture Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Notification Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Response": {
+      "main": [
+        [
+          {
+            "node": "Send Notification Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification Email": {
+      "main": [
+        [
+          {
+            "node": "Hot Lead Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hot Lead Check": {
+      "main": [
+        [
+          {
+            "node": "Send URGENT Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4f367a85-1716-4f7e-a9e7-2b3c041869c7",
+  "meta": {
+    "instanceId": "a09f834d0d2e08b3c91e307434b9ba76dd4c9a3d84bad98a6a8264a7f9aeaf55"
+  },
+  "id": "YLfRIJUt19T1rjhW",
+  "tags": []
+}
